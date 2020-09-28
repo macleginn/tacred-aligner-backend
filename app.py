@@ -160,23 +160,29 @@ def nextsentence_handler(language):
         return response
     discarded = get_discarded()
     processed = get_processed()
-    if requirements == get_satisfied(processed):
-        response = make_response(jsonify({'done': True}), 200)
-        populate_headers_json(response)
-        return response
 
     done_in_other_lang = False
-    # First try to suggest sentences already aligned by the other party.
+    # First try to suggest sentences already aligned by the other fella.
     other_lang = 'ru' if language == 'ko' else 'ko'
     if processed[other_lang]:
         next_id = processed[other_lang].pop()
         processed[other_lang].add(next_id)  # Delete only when the sentence is returned.
         done_in_other_lang = True
     # If this fails, suggest a random sentence.
+    # Will enter an infinite loop when all TACRED sample is processed!
     else:
         while True:
             next_id = choice(record_ids)
+            if requirements == get_satisfied(processed):
+                # Any non-processed and non-discarded sentence will do.
+                if next_id in processed['both'] or \
+                    next_id in processed[language] or \
+                    next_id in discarded:
+                    continue
+                else:
+                    break
             if needed(next_id, language, processed, discarded):
+                # Sample unfinished relations.
                 break
     
     response = make_response(jsonify({
